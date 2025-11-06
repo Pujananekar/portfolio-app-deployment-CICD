@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         SSH_CRED = 'node-app-key'
-        SERVER_IP = '23.22.235.89'  // Use public IP for external Jenkins
+        SERVER_IP = '3.84.206.203'  // Use public IP for external Jenkins
         REMOTE_USER = 'ubuntu'
         WEB_DIR = '/var/www/html'
     }
