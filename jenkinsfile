@@ -1,0 +1,64 @@
+pipeline {
+    agent any
+
+    environment {
+        SSH_CRED = 'node-app-key'
+        SERVER_IP = '23.22.235.89'  // Use public IP for external Jenkins
+        REMOTE_USER = 'ubuntu'
+        WEB_DIR = '/var/www/html'
+    }
+
+    stages {
+        stage('Clone Repo') {
+            steps {
+                git url: 'https://github.com/Pujananekar/portfolio-app-deployment-CICD.git', branch: 'main'
+            }
+        }
+
+        stage('Setup Apache Server') {
+            steps {
+                sshagent(credentials: ["${SSH_CRED}"]) {
+                    sh '''
+                        echo "Setting up Apache on remote server..."
+                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${REMOTE_USER}@${SERVER_IP} "
+                            sudo apt update -y &&
+                            sudo apt install apache2 -y &&
+                            sudo mkdir -p ${WEB_DIR} &&
+                            sudo chown -R www-data:www-data ${WEB_DIR} &&
+                            sudo chmod -R 755 ${WEB_DIR} &&
+                            sudo systemctl enable apache2 &&
+                            sudo systemctl start apache2
+                        "
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy to Apache Server') {
+            steps {
+                sshagent(credentials: ["${SSH_CRED}"]) {
+                    sh '''
+                        echo "Cleaning old files on server..."
+                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${REMOTE_USER}@${SERVER_IP} "sudo rm -rf ${WEB_DIR}/*"
+
+                        echo "Uploading new files to /tmp on server..."
+                        scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r index.html css js fonts images ${REMOTE_USER}@${SERVER_IP}:/tmp/
+
+                        echo "Deploying files to Apache directory..."
+                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${REMOTE_USER}@${SERVER_IP} "
+                            sudo cp -r /tmp/index.html /tmp/css /tmp/js /tmp/fonts /tmp/images ${WEB_DIR}/ &&
+                            sudo systemctl restart apache2
+                        "
+                    '''
+                }
+            }
+        }
+
+        stage('Show Deployment URL') {
+            steps {
+                echo "✅ Deployment complete!"
+                echo "🌐 Visit your portfolio at: http://${SERVER_IP}/"
+            }
+        }
+    }
+}
